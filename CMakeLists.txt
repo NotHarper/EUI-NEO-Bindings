@@ -19,6 +19,7 @@ option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ON)
+option(EUI_BUILD_JNI "Build the Java JNI bridge and Java artifact." OFF)
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 
 set(EUI_DEFAULT_WINDOW_BACKEND "glfw")
@@ -160,6 +161,7 @@ set(CORE_SOURCES
     core/render/text.cpp
     core/platform/tray_bridge.c
     core/window/window_backend.cpp
+    core/api/neo_c_api.cpp
 )
 
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
@@ -200,6 +202,78 @@ target_link_libraries(eui_neo PUBLIC Threads::Threads)
 target_compile_features(eui_neo PUBLIC cxx_std_17)
 target_compile_definitions(eui_neo PRIVATE YYJSON_DISABLE_WRITER=1)
 eui_apply_compile_options(eui_neo)
+
+if(EUI_BUILD_JNI)
+    find_package(Java COMPONENTS Development REQUIRED)
+    find_package(JNI REQUIRED)
+    set_target_properties(eui_neo PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    add_library(eui_neo_jni SHARED bindings/java/native/eui_neo_jni.cpp)
+    target_include_directories(eui_neo_jni PRIVATE ${JNI_INCLUDE_DIRS} "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    target_compile_definitions(eui_neo_jni PRIVATE EUI_NEO_C_API_BUILD EUI_NEO_C_API_SHARED)
+    target_link_libraries(eui_neo_jni PRIVATE eui::neo)
+    set_target_properties(eui_neo_jni PROPERTIES OUTPUT_NAME eui_neo_jni)
+    if(WIN32)
+        # System.mapLibraryName("eui_neo_jni") returns "eui_neo_jni.dll" on Windows (no lib prefix).
+        set_target_properties(eui_neo_jni PROPERTIES PREFIX "")
+    endif()
+    if(MINGW)
+        # Statically link MinGW runtimes so the JNI DLL has no external libgcc/libstdc++/winpthread deps.
+        target_link_options(eui_neo_jni PRIVATE
+            -static-libgcc
+            -static-libstdc++
+            -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive
+        )
+    endif()
+    eui_apply_compile_options(eui_neo_jni)
+
+    # Platform classifier matching NativeLoader.platformName()
+    if(WIN32)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+            set(EUI_JNI_PLATFORM "windows-aarch64")
+        else()
+            set(EUI_JNI_PLATFORM "windows-x86_64")
+        endif()
+    elseif(APPLE)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+            set(EUI_JNI_PLATFORM "macos-aarch64")
+        else()
+            set(EUI_JNI_PLATFORM "macos-x86_64")
+        endif()
+    else()
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+            set(EUI_JNI_PLATFORM "linux-aarch64")
+        else()
+            set(EUI_JNI_PLATFORM "linux-x86_64")
+        endif()
+    endif()
+    message(STATUS "EUI JNI platform: ${EUI_JNI_PLATFORM}")
+
+    set(EUI_JNI_CLASSES_DIR "${CMAKE_CURRENT_BINARY_DIR}/java-classes")
+    set(EUI_JNI_NATIVE_DIR  "${EUI_JNI_CLASSES_DIR}/natives/${EUI_JNI_PLATFORM}")
+    set(EUI_JNI_JAR         "${CMAKE_CURRENT_BINARY_DIR}/eui-neo-java.jar")
+    set(EUI_JAVA_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoException.java
+        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoConfig.java
+        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoFrameInfo.java
+        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NativeLoader.java
+        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoEngine.java
+    )
+
+    add_custom_target(eui_neo_java_classes
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${EUI_JNI_CLASSES_DIR}"
+        COMMAND "${CMAKE_COMMAND}" -E remove_directory "${EUI_JNI_NATIVE_DIR}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${EUI_JNI_NATIVE_DIR}"
+        COMMAND "${CMAKE_COMMAND}" -E copy
+            "$<TARGET_FILE:eui_neo_jni>"
+            "${EUI_JNI_NATIVE_DIR}/$<TARGET_FILE_NAME:eui_neo_jni>"
+        COMMAND "${Java_JAVAC_EXECUTABLE}" --release 17 -encoding UTF-8 -d "${EUI_JNI_CLASSES_DIR}"
+            ${EUI_JAVA_SOURCES}
+        COMMAND "${Java_JAR_EXECUTABLE}" --create --file "${EUI_JNI_JAR}"
+            -C "${EUI_JNI_CLASSES_DIR}" .
+        DEPENDS eui_neo_jni
+        VERBATIM
+    )
+endif()
 
 set(EUI_YYJSON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/3rd/yyjson-0.12.0/src/yyjson.c")
 if(EUI_BUILD_SHARED)
@@ -429,6 +503,16 @@ if(EUI_ENABLE_INSTALL)
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
+    if(EUI_BUILD_JNI)
+        install(TARGETS eui_neo_jni
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        )
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/eui-neo-java.jar"
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo
+            OPTIONAL
+        )
+    endif()
     set(EUI_NEO_INSTALL_DEP_TARGETS freetype png_static eui_zlib eui_md4c SDL2-static)
     if(EUI_OWNS_GLAD_TARGET)
         list(APPEND EUI_NEO_INSTALL_DEP_TARGETS glad)

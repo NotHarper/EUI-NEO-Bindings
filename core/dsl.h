@@ -782,6 +782,8 @@ public:
 
     void build() {}
 
+    Element* element() const { return element_; }
+
 protected:
     BuilderBase(Ui& ui, Element* element) : ui_(&ui), element_(element) {}
 

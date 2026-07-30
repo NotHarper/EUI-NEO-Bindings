@@ -161,6 +161,66 @@ cmake --build build --parallel
 
 这种方式下，EUI-NEO 会接管窗口、事件循环、当前选择的渲染后端和资源复制。SDL2、Vulkan、`FetchContent`、自定义 main loop，以及在父项目里构建仓库自带示例的写法，见 [集成指南](docs/集成指南.md)。
 
+## Java / JNI
+
+EUI-NEO 可通过 JNI 桥接供 Java 使用。桥接层暴露稳定的 C ABI（`include/eui/neo_c_api.h`）和 Java facade（`com.sudoevolve.euineo`）。
+
+### 要求
+
+- JDK 17 或更高版本
+- CMake 3.14+、C++17 编译器，以及与 C++ 构建相同的 OpenGL / 窗口系统开发依赖
+
+### 构建
+
+```sh
+cmake -S . -B build-jni \
+  -DEUI_BUILD_APPS=OFF \
+  -DEUI_BUILD_JNI=ON \
+  -DEUI_DEPS_MODE=bundled
+cmake --build build-jni --parallel
+cmake --build build-jni --target eui_neo_java_classes
+```
+
+构建产物为 `build-jni/eui_neo_jni.dll`（Linux 为 `.so`，macOS 为 `.dylib`）和 `build-jni/eui-neo-java.jar`。JAR 已将对应平台的 native 库打包在 `natives/<os>-<arch>/` 路径下，可作为自包含产物直接分发。
+
+### 快速开始
+
+```java
+import com.sudoevolve.euineo.NeoConfig;
+import com.sudoevolve.euineo.NeoEngine;
+import com.sudoevolve.euineo.NeoFrameInfo;
+
+NeoConfig config = new NeoConfig()
+    .title("My Java App")
+    .size(960, 640);
+
+// 所有 engine 调用必须在创建 engine 的线程上执行。
+try (NeoEngine engine = new NeoEngine(config)) {
+    engine.initialize();
+
+    // 可选：通过 JSON 声明 UI 内容。
+    engine.setUiJson("{\"type\":\"column\",\"children\":[{\"type\":\"text\",\"text\":\"Hello from Java\"}]}");
+
+    while (engine.isRunning()) {
+        engine.pumpEvents(16);   // 最多等待 16 ms
+        NeoFrameInfo info = engine.frame();
+        if (!info.running()) break;
+    }
+}
+```
+
+### 加载 native 库
+
+`NativeLoader` 首次使用时会从 JAR 中将对应平台的 native 库解压到临时文件并加载。可通过系统属性 `eui.neo.native` 覆盖路径：
+
+```sh
+java -Deui.neo.native=/path/to/eui_neo_jni.dll -jar my-app.jar
+```
+
+### 线程亲和性
+
+所有 `NeoEngine` 调用必须在创建它的线程上执行。native 窗口、OpenGL 上下文和事件循环均绑定到该线程。从其他线程调用会抛出 code 为 `3` 的 `NeoException`。
+
 ## 目录结构
 
 ```text

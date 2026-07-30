@@ -159,7 +159,67 @@ cmake --build build --parallel
 
 EUI-NEO owns the window, event loop, selected render backend, and asset copying in this setup. For SDL2, Vulkan, `FetchContent`, custom main loops, or building the bundled examples from a parent project, see the [Integration Guide](docs/集成指南.md).
 
-## Project Layout
+## Java / JNI
+
+EUI-NEO can be used from Java via a JNI bridge. The bridge exposes a C ABI (`include/eui/neo_c_api.h`) and a thin Java facade (`com.sudoevolve.euineo`).
+
+### Requirements
+
+- JDK 17 or later
+- CMake 3.14+, a C++17 compiler, and the same OpenGL / windowing dependencies as the C++ build
+
+### Build
+
+```sh
+cmake -S . -B build-jni \
+  -DEUI_BUILD_APPS=OFF \
+  -DEUI_BUILD_JNI=ON \
+  -DEUI_DEPS_MODE=bundled
+cmake --build build-jni --parallel
+cmake --build build-jni --target eui_neo_java_classes
+```
+
+This produces `build-jni/eui_neo_jni.dll` (or `.so` / `.dylib`) and `build-jni/eui-neo-java.jar`. The JAR already contains the native library under `natives/<os>-<arch>/` so it can be shipped as a self-contained artifact.
+
+### Quick start
+
+```java
+import com.sudoevolve.euineo.NeoConfig;
+import com.sudoevolve.euineo.NeoEngine;
+import com.sudoevolve.euineo.NeoFrameInfo;
+
+NeoConfig config = new NeoConfig()
+    .title("My Java App")
+    .size(960, 640);
+
+// All engine calls must happen on the thread that created the engine.
+try (NeoEngine engine = new NeoEngine(config)) {
+    engine.initialize();
+
+    // Optionally supply UI as a JSON document.
+    engine.setUiJson("{\"type\":\"column\",\"children\":[{\"type\":\"text\",\"text\":\"Hello from Java\"}]}");
+
+    while (engine.isRunning()) {
+        engine.pumpEvents(16);   // wait up to 16 ms for an event
+        NeoFrameInfo info = engine.frame();
+        if (!info.running()) break;
+    }
+}
+```
+
+### Loading the native library
+
+`NativeLoader` extracts the matching native library from the JAR to a temporary file on first use. You can override the path with the system property `eui.neo.native`:
+
+```sh
+java -Deui.neo.native=/path/to/eui_neo_jni.dll -jar my-app.jar
+```
+
+### Thread affinity
+
+All `NeoEngine` calls must be made from the thread that created the engine. The native window, OpenGL context, and event loop are bound to that thread. Calling from another thread throws `NeoException` with code `3`.
+
+
 
 ```text
 assets/       Runtime assets: fonts, PNG, SVG, and icons
