@@ -66,7 +66,7 @@ extern "C" {
 
 JNIEXPORT jlong JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeCreate(
     JNIEnv* env, jclass, jstring title, jstring pageId, jstring uiJson, jint width, jint height,
-    jdouble fps, jfloat red, jfloat green, jfloat blue, jfloat alpha, jboolean resizable) {
+    jdouble fps, jfloat red, jfloat green, jfloat blue, jfloat alpha, jboolean resizable, jboolean decorated) {
     eui_neo_config config;
     eui_neo_config_init(&config);
     const std::string titleText = utf8(env, title);
@@ -83,6 +83,7 @@ JNIEXPORT jlong JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeCreate(
     config.clear_color_b = blue;
     config.clear_color_a = alpha;
     config.resizable = resizable == JNI_TRUE ? 1 : 0;
+    config.decorated = decorated == JNI_TRUE ? 1 : 0;
     eui_neo_engine* engine = eui_neo_create(&config);
     if (engine == nullptr) throwException(env, "com/sudoevolve/euineo/NeoException", "Unable to create native engine.");
     return reinterpret_cast<jlong>(engine);

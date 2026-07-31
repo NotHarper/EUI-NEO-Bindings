@@ -64,6 +64,9 @@ Handle createWindow(const WindowCreateRequest& request) {
     if (request.resizable) {
         flags |= SDL_WINDOW_RESIZABLE;
     }
+    if (!request.decorated) {
+        flags |= SDL_WINDOW_BORDERLESS;
+    }
     flags |= request.renderApi == RenderApi::Vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL;
 
     return SDL_CreateWindow(
@@ -284,7 +287,8 @@ Handle createWindow(const WindowCreateRequest& request) {
         configureOpenGLWindowHints();
         shareContext = static_cast<GLFWwindow*>(request.parent);
     }
-    glfwWindowHint(GLFW_RESIZABLE, request.resizable ? GLFW_TRUE : GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE,  request.resizable  ? GLFW_TRUE : GLFW_FALSE);
+    glfwWindowHint(GLFW_DECORATED,  request.decorated  ? GLFW_TRUE : GLFW_FALSE);
 
     return glfwCreateWindow(
         request.width,

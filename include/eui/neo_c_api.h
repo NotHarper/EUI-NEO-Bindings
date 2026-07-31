@@ -47,7 +47,8 @@ typedef struct eui_neo_config {
     float clear_color_b;
     float clear_color_a;
     uint8_t resizable;
-    uint8_t reserved[7];
+    uint8_t decorated;
+    uint8_t reserved[6];
 } eui_neo_config;
 
 typedef struct eui_neo_frame_info {
@@ -106,7 +107,7 @@ EUI_NEO_C_API eui_neo_result eui_neo_set_window_title(eui_neo_engine* engine, co
 EUI_NEO_C_API eui_neo_result eui_neo_set_window_size(eui_neo_engine* engine, int32_t width, int32_t height);
 EUI_NEO_C_API const char*    eui_neo_last_event_handler_id(const eui_neo_engine* engine);
 EUI_NEO_C_API const char*    eui_neo_last_event_text_input(const eui_neo_engine* engine);
-EUI_NEO_C_API uint32_t       eui_neo_api_version(void);
+EUI_NEO_C_API const char*    eui_neo_create_last_error(void);
 
 #ifdef __cplusplus
 }

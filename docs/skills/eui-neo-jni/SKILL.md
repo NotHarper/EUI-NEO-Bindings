@@ -79,8 +79,10 @@ EUI-NEO DSL runtime, GLFW/SDL windowing, OpenGL/Vulkan rendering
 - All GUI calls must happen on the owner thread (thread that called `nativeCreate`)
 - Float values passed through JNI use `memcpy`-based bit conversion (`Float.intBitsToFloat` / `memcpy(&bits, &f, 4)`), not `reinterpret_cast`, to avoid strict-aliasing UB
 - `NeoException` is constructed with `GetMethodID`/`NewObject`/`Throw` — not `ThrowNew` — because the constructor takes both a String and an int code
-- The `Cleaner` in `NeoEngine` only prints a leak warning; it never calls `nativeDestroy` (OpenGL context cannot be released from the GC thread)
+- The `Cleaner` in `NeoEngine` only prints a leak warning; it never calls `nativeDestroy` (OpenGL context cannot be released from the GC thread). `eui_neo_destroy()` will also silently return without freeing if `initialized` is true and called from a non-owner thread — this is intentional to prevent GPU resource corruption
 - `eui_neo_engine` is an **opaque** (incomplete) type from JNI's perspective — never access its fields directly in JNI code; use C ABI accessor functions
+- After a failed `eui_neo_create()`, call `eui_neo_create_last_error()` (thread-local, no engine handle required) to retrieve the error message
+- `eui_neo_request_update()` is safe to call from any thread; it guards `postEmptyEvent()` behind a mutex so it cannot race with platform shutdown
 
 ## Event System
 
@@ -194,6 +196,7 @@ cmake --build build-default --parallel
 
 ## Constraints
 
+- **`decorated` is creation-time only**: `NeoConfig.decorated(false)` removes the title bar / border. Set before `new NeoEngine(config)` — there is no runtime setter. Translates to `GLFW_DECORATED = GLFW_FALSE` (GLFW) or `SDL_WINDOW_BORDERLESS` (SDL2).
 - **Single active engine per process**: the DSL runtime has process-level static state; creating two `NeoEngine` instances concurrently is undefined behaviour.
 - **Owner thread**: every `NeoEngine` method (except `requestUpdate` and `isRunning`) must be called from the thread that created the engine. Violation throws `NeoException(code=3)`.
 - **Event queue is pull-based**: the queue is not thread-safe; only drain events on the owner thread after `pumpEvents`.

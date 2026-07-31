@@ -21,6 +21,7 @@ struct WindowCreateRequest {
     int height = 0;
     const char* title = "";
     bool resizable = true;
+    bool decorated = true;
     bool highDpi = true;
     bool modal = false;
     Handle parent = nullptr;

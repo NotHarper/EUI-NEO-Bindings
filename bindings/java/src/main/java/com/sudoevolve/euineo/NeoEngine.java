@@ -26,7 +26,7 @@ public final class NeoEngine implements AutoCloseable {
         ownerThread = Thread.currentThread();
         handle = nativeCreate(config.title, config.pageId, config.uiJson, config.width, config.height,
                 config.framesPerSecond, config.clearRed, config.clearGreen, config.clearBlue,
-                config.clearAlpha, config.resizable);
+                config.clearAlpha, config.resizable, config.decorated);
         if (handle == 0) throw new NeoException("Unable to create native engine", -1);
         cleanupState = new State(handle);
         cleanable = CLEANER.register(this, cleanupState);
@@ -157,7 +157,7 @@ public final class NeoEngine implements AutoCloseable {
 
     private static native long nativeCreate(String title, String pageId, String uiJson, int width, int height,
                                              double fps, float red, float green, float blue, float alpha,
-                                             boolean resizable);
+                                             boolean resizable, boolean decorated);
     private static native int nativeInitialize(long handle);
     private static native int nativePumpEvents(long handle, int waitTimeoutMillis);
     private static native long[] nativeFrame(long handle);

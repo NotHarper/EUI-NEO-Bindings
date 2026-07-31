@@ -12,6 +12,7 @@ public final class NeoConfig {
     float clearBlue = 0.20f;
     float clearAlpha = 1.0f;
     boolean resizable = true;
+    boolean decorated = true;
 
     public NeoConfig title(String value) { title = requireText(value, "title"); return this; }
     public NeoConfig pageId(String value) { pageId = requireText(value, "pageId"); return this; }
@@ -37,6 +38,7 @@ public final class NeoConfig {
         return this;
     }
     public NeoConfig resizable(boolean value) { resizable = value; return this; }
+    public NeoConfig decorated(boolean value) { decorated = value; return this; }
 
     private static String requireText(String value, String name) {
         if (value == null || value.isEmpty()) throw new IllegalArgumentException(name + " must not be empty");

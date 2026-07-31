@@ -44,13 +44,13 @@
 
 ### 1. C ABI engine 待改进（非阻塞，但需在正式发布前解决）
 
-- [ ] `eui_neo_create()` 失败时 lastError 只能在销毁前从 engine 读取；考虑增加线程局部 create error 或 `eui_neo_create_ex(out_error)`
-- [ ] `eui_neo_destroy()` 若由非 owner 线程调用仍会直接 delete，可能绕过 OpenGL 上下文清理
-- [ ] `eui_neo_request_update()` 与 shutdown 的并发安全：`core::window::postEmptyEvent()` 的 platform lifetime 需要保护
-- [ ] `frames_per_second` 字段目前未用于帧节流
-- [ ] 完善 GLFW 事件回调：content scale、refresh、focus/iconify
-- [ ] 完善 SDL2 事件映射：键盘、文本/IME、滚轮、窗口事件
-- [ ] 验证 Vulkan loader 初始化在 GLFW/SDL 两种 backend 下的顺序
+- [x] `eui_neo_create()` 失败时：增加 `thread_local g_createError`；新增 `eui_neo_create_last_error()` C API
+- [x] `eui_neo_destroy()` 非 owner 线程：若 `initialized`，立即返回（不 delete）；未初始化则安全 delete
+- [x] `eui_neo_request_update()` 并发安全：`postEmptyEvent()` 调用前先锁 `platformMutex` 检查 `platformInitialized`
+- [x] `frames_per_second` 帧节流：`eui_neo_frame()` 末尾计算剩余帧时间并 sleep
+- [x] 完善 GLFW 事件回调：已补 focus / iconify / refresh callbacks
+- [x] 完善 SDL2 事件映射：已补 `SDL_KEYDOWN`（全键映射）、`SDL_MOUSEBUTTONDOWN/UP`、`SDL_MOUSEMOTION`
+- [x] Vulkan loader 初始化顺序：SDL2+Vulkan 路径在 `SDL_Init` 前调用 `initializeRenderBackendLoader()`
 
 ### 2. JNI / Java API 待补充
 

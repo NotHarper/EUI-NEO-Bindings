@@ -87,10 +87,11 @@ struct eui_neo_engine {
     std::unique_ptr<core::render::RenderBackend> renderBackend;
     core::dsl::Runtime runtime;
     std::atomic<bool> updateRequested{true};
+    std::atomic<bool> platformInitialized{false};
+    std::mutex platformMutex;
     std::queue<eui_neo_event> eventQueue;
     std::string lastEventHandlerId;
     std::string lastEventTextInput;
-    bool platformInitialized = false;
     bool initialized = false;
     bool running = false;
     bool composed = false;
@@ -101,6 +102,8 @@ struct eui_neo_engine {
 };
 
 namespace {
+
+thread_local std::string g_createError;
 
 void setError(eui_neo_engine* engine, const std::string& message) {
     if (engine != nullptr) engine->lastError = message;
@@ -501,12 +504,17 @@ void shutdownInternal(eui_neo_engine* engine) {
         engine->window = nullptr;
     }
     engine->renderBackend.reset();
+    const bool wasInitialized = [&] {
+        std::lock_guard<std::mutex> lock(engine->platformMutex);
+        const bool was = engine->platformInitialized.load(std::memory_order_relaxed);
+        engine->platformInitialized.store(false, std::memory_order_relaxed);
+        return was;
+    }();
 #if defined(EUI_WINDOW_BACKEND_SDL2)
-    if (engine->platformInitialized) SDL_Quit();
+    if (wasInitialized) SDL_Quit();
 #else
-    if (engine->platformInitialized) glfwTerminate();
+    if (wasInitialized) glfwTerminate();
 #endif
-    engine->platformInitialized = false;
     engine->initialized = false;
     engine->running     = false;
     eui_neo_engine* expected = engine;
@@ -535,6 +543,7 @@ void eui_neo_config_init(eui_neo_config* config) {
     config->clear_color_b     = 0.20f;
     config->clear_color_a     = 1.0f;
     config->resizable         = 1;
+    config->decorated         = 1;
 }
 
 void eui_neo_frame_info_init(eui_neo_frame_info* fi) {
@@ -550,20 +559,31 @@ void eui_neo_event_init(eui_neo_event* event) {
     event->size = sizeof(*event);
 }
 
+const char* eui_neo_create_last_error(void) {
+    return g_createError.c_str();
+}
+
 eui_neo_engine* eui_neo_create(const eui_neo_config* config) {
     eui_neo_config resolved;
     eui_neo_config_init(&resolved);
     if (config != nullptr) {
-        if (config->size < sizeof(eui_neo_config) || config->version != EUI_NEO_C_API_VERSION) return nullptr;
+        if (config->size < sizeof(eui_neo_config) || config->version != EUI_NEO_C_API_VERSION) {
+            g_createError = "Invalid config: size or version mismatch.";
+            return nullptr;
+        }
         resolved = *config;
     }
     std::unique_ptr<eui_neo_engine> engine(new (std::nothrow) eui_neo_engine());
-    if (!engine) return nullptr;
-    engine->config    = resolved;
-    engine->title     = resolved.title_utf8    != nullptr ? resolved.title_utf8    : "EUI-NEO Java";
-    engine->pageId    = resolved.page_id_utf8  != nullptr ? resolved.page_id_utf8  : "java";
+    if (!engine) { g_createError = "Memory allocation failed."; return nullptr; }
+    engine->config      = resolved;
+    engine->title       = resolved.title_utf8   != nullptr ? resolved.title_utf8   : "EUI-NEO Java";
+    engine->pageId      = resolved.page_id_utf8 != nullptr ? resolved.page_id_utf8 : "java";
     engine->ownerThread = std::this_thread::get_id();
-    if (!parseUi(engine.get(), resolved.ui_json_utf8)) return nullptr;
+    if (!parseUi(engine.get(), resolved.ui_json_utf8)) {
+        g_createError = engine->lastError;
+        return nullptr;
+    }
+    g_createError.clear();
     return engine.release();
 }
 
@@ -578,6 +598,9 @@ eui_neo_result eui_neo_initialize(eui_neo_engine* engine) {
     }
     core::platform::repairCurrentWorkingDirectory();
 #if defined(EUI_WINDOW_BACKEND_SDL2)
+#  if defined(EUI_RENDER_BACKEND_VULKAN)
+    core::render::initializeRenderBackendLoader();
+#  endif
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         setError(engine, SDL_GetError());
@@ -598,6 +621,7 @@ eui_neo_result eui_neo_initialize(eui_neo_engine* engine) {
     request.height    = std::max(120, engine->config.height);
     request.title     = engine->title.c_str();
     request.resizable = engine->config.resizable != 0;
+    request.decorated = engine->config.decorated != 0;
     request.renderApi = core::render::windowRenderApi();
     engine->window    = core::window::createWindow(request);
     if (engine->window == nullptr) { setError(engine, "Native window creation failed."); shutdownInternal(engine); return EUI_NEO_PLATFORM_ERROR; }
@@ -609,6 +633,18 @@ eui_neo_result eui_neo_initialize(eui_neo_engine* engine) {
         if (e) e->updateRequested.store(true, std::memory_order_release);
     });
     glfwSetWindowContentScaleCallback(static_cast<GLFWwindow*>(engine->window), [](GLFWwindow* w, float, float) {
+        auto* e = static_cast<eui_neo_engine*>(glfwGetWindowUserPointer(w));
+        if (e) e->updateRequested.store(true, std::memory_order_release);
+    });
+    glfwSetWindowFocusCallback(static_cast<GLFWwindow*>(engine->window), [](GLFWwindow* w, int) {
+        auto* e = static_cast<eui_neo_engine*>(glfwGetWindowUserPointer(w));
+        if (e) e->updateRequested.store(true, std::memory_order_release);
+    });
+    glfwSetWindowIconifyCallback(static_cast<GLFWwindow*>(engine->window), [](GLFWwindow* w, int) {
+        auto* e = static_cast<eui_neo_engine*>(glfwGetWindowUserPointer(w));
+        if (e) e->updateRequested.store(true, std::memory_order_release);
+    });
+    glfwSetWindowRefreshCallback(static_cast<GLFWwindow*>(engine->window), [](GLFWwindow* w) {
         auto* e = static_cast<eui_neo_engine*>(glfwGetWindowUserPointer(w));
         if (e) e->updateRequested.store(true, std::memory_order_release);
     });
@@ -643,6 +679,33 @@ eui_neo_result eui_neo_pump_events(eui_neo_engine* engine, int32_t waitMs) {
         else if (event.type == SDL_TEXTINPUT)    { core::queueTextInput(engine->window, event.text.text);   engine->updateRequested.store(true, std::memory_order_release); }
         else if (event.type == SDL_TEXTEDITING)  { core::queueTextEditing(engine->window, event.edit.text); engine->updateRequested.store(true, std::memory_order_release); }
         else if (event.type == SDL_MOUSEWHEEL)   { core::queueScrollInput(engine->window, event.wheel.preciseX, event.wheel.preciseY); engine->updateRequested.store(true, std::memory_order_release); }
+        else if (event.type == SDL_KEYDOWN) {
+            const bool ctrl  = (event.key.keysym.mod & (KMOD_CTRL | KMOD_GUI)) != 0;
+            const bool shift = (event.key.keysym.mod & KMOD_SHIFT) != 0;
+            switch (event.key.keysym.sym) {
+            case SDLK_BACKSPACE: core::queueKeyInput(engine->window, core::InputKey::Backspace, ctrl, shift); break;
+            case SDLK_DELETE:    core::queueKeyInput(engine->window, core::InputKey::Delete,    ctrl, shift); break;
+            case SDLK_RETURN:
+            case SDLK_KP_ENTER:  core::queueKeyInput(engine->window, core::InputKey::Enter,     ctrl, shift); break;
+            case SDLK_LEFT:      core::queueKeyInput(engine->window, core::InputKey::Left,       ctrl, shift); break;
+            case SDLK_RIGHT:     core::queueKeyInput(engine->window, core::InputKey::Right,      ctrl, shift); break;
+            case SDLK_UP:        core::queueKeyInput(engine->window, core::InputKey::Up,         ctrl, shift); break;
+            case SDLK_DOWN:      core::queueKeyInput(engine->window, core::InputKey::Down,       ctrl, shift); break;
+            case SDLK_HOME:      core::queueKeyInput(engine->window, core::InputKey::Home,       ctrl, shift); break;
+            case SDLK_END:       core::queueKeyInput(engine->window, core::InputKey::End,        ctrl, shift); break;
+            case SDLK_ESCAPE:    core::queueKeyInput(engine->window, core::InputKey::Escape,     ctrl, shift); break;
+            case SDLK_a:         core::queueKeyInput(engine->window, core::InputKey::A,          ctrl, shift); break;
+            case SDLK_c:         core::queueKeyInput(engine->window, core::InputKey::C,          ctrl, shift); break;
+            case SDLK_v:         core::queueKeyInput(engine->window, core::InputKey::V,          ctrl, shift); break;
+            case SDLK_x:         core::queueKeyInput(engine->window, core::InputKey::X,          ctrl, shift); break;
+            case SDLK_y:         core::queueKeyInput(engine->window, core::InputKey::Y,          ctrl, shift); break;
+            case SDLK_z:         core::queueKeyInput(engine->window, core::InputKey::Z,          ctrl, shift); break;
+            default: break;
+            }
+            engine->updateRequested.store(true, std::memory_order_release);
+        }
+        else if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP ||
+                 event.type == SDL_MOUSEMOTION)  { engine->updateRequested.store(true, std::memory_order_release); }
         else if (event.type == SDL_WINDOWEVENT)  { engine->updateRequested.store(true, std::memory_order_release); }
     }
 #else
@@ -660,6 +723,7 @@ eui_neo_result eui_neo_frame(eui_neo_engine* engine, eui_neo_frame_info* frameIn
     if (frameInfo && (frameInfo->size < sizeof(*frameInfo) || frameInfo->version != EUI_NEO_C_API_VERSION)) {
         setError(engine, "Invalid frame info structure."); return EUI_NEO_INVALID_ARGUMENT;
     }
+    const double frameStart = core::window::timeSeconds();
     int width = 0, height = 0;
     framebufferSize(engine, width, height);
     const float dpi     = dpiScale(engine);
@@ -694,6 +758,13 @@ eui_neo_result eui_neo_frame(eui_neo_engine* engine, eui_neo_frame_info* frameIn
         frameInfo->rendered           = rendered ? 1 : 0;
         frameInfo->running            = engine->running ? 1 : 0;
     }
+    if (engine->config.frames_per_second > 1.0) {
+        const double targetMs  = 1000.0 / engine->config.frames_per_second;
+        const double elapsedMs = (core::window::timeSeconds() - frameStart) * 1000.0;
+        const int64_t sleepUs  = static_cast<int64_t>((targetMs - elapsedMs) * 1000.0);
+        if (sleepUs > 500)
+            std::this_thread::sleep_for(std::chrono::microseconds(sleepUs));
+    }
     return EUI_NEO_OK;
 }
 
@@ -707,7 +778,11 @@ eui_neo_result eui_neo_set_ui_json(eui_neo_engine* engine, const char* uiJsonUtf
 eui_neo_result eui_neo_request_update(eui_neo_engine* engine) {
     if (engine == nullptr) return EUI_NEO_INVALID_ARGUMENT;
     engine->updateRequested.store(true, std::memory_order_release);
-    core::window::postEmptyEvent();
+    {
+        std::lock_guard<std::mutex> lock(engine->platformMutex);
+        if (engine->platformInitialized.load(std::memory_order_relaxed))
+            core::window::postEmptyEvent();
+    }
     return EUI_NEO_OK;
 }
 
@@ -724,7 +799,16 @@ eui_neo_result eui_neo_shutdown(eui_neo_engine* engine) {
 
 void eui_neo_destroy(eui_neo_engine* engine) {
     if (engine == nullptr) return;
-    if (engine->ownerThread == std::this_thread::get_id()) shutdownInternal(engine);
+    if (engine->ownerThread != std::this_thread::get_id()) {
+        if (engine->initialized) {
+            // GPU/window resources can only be released from the owner thread.
+            // Call eui_neo_shutdown() then eui_neo_destroy() from the owner thread.
+            return;
+        }
+        delete engine;
+        return;
+    }
+    shutdownInternal(engine);
     delete engine;
 }
 

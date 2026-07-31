@@ -160,13 +160,14 @@ uint32_t    eui_neo_api_version(void);    // 整数版本，用于兼容性检�
 
 ```c
 eui_neo_engine* eui_neo_create(const eui_neo_config* config);
+const char*     eui_neo_create_last_error(void);        // 线程局部；create 失败后可读，不需要 engine handle
 eui_neo_result  eui_neo_initialize(eui_neo_engine* engine);
 eui_neo_result  eui_neo_pump_events(eui_neo_engine* engine, int32_t timeout_ms);
 eui_neo_result  eui_neo_frame(eui_neo_engine* engine, eui_neo_frame_info* info);
 eui_neo_result  eui_neo_request_update(eui_neo_engine* engine);  // 线程安全
 int32_t         eui_neo_is_running(const eui_neo_engine* engine);
 eui_neo_result  eui_neo_shutdown(eui_neo_engine* engine);
-void            eui_neo_destroy(eui_neo_engine* engine);
+void            eui_neo_destroy(eui_neo_engine* engine);         // 若 initialized 且非 owner thread，为空操作
 const char*     eui_neo_last_error(const eui_neo_engine* engine);
 ```
 
@@ -457,6 +458,7 @@ NeoConfig pageId(String)
 NeoConfig uiJson(String)
 NeoConfig clearColor(float r, float g, float b, float a)
 NeoConfig resizable(boolean)
+NeoConfig decorated(boolean)
 ```
 
 ### `NeoFrameInfo`（Java record）
@@ -659,7 +661,7 @@ java -Deui.neo.native=/opt/eui/eui_neo_jni.so -jar my-app.jar
 |------|------|
 | 单 engine 实例 | 进程内同时只能存在一个 `NeoEngine`；底层 DSL Runtime 含进程级静态状态 |
 | Callback registry 不自动清理 | 重建 UI 树时需创建新 `NeoUi` 实例以释放旧 handler |
-| `framesPerSecond` 未生效 | 配置字段存在但帧节流未实现，实际帧率由 `pumpEvents` 超时控制 |
+| `framesPerSecond` 帧节流 | `eui_neo_frame()` 末尾按目标帧率 sleep；精度取决于系统定时器 |
 | Java 16+ | `NeoFrameInfo` 使用 `record`；Java 11 需改为普通 `final class` |
 | GUI 必须有 display | `initialize()` 在无 display 的 headless 服务器上会失败；CI 须使用 Xvfb |
 | 不支持多窗口（Java API） | C ABI 层只暴露主窗口；子窗口/托盘计划后续版本 |
