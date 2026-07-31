@@ -58,6 +58,10 @@ void checkResult(JNIEnv* env, eui_neo_engine* engine, eui_neo_result result) {
 
 } // namespace
 
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM*, void*) {
+    return JNI_VERSION_1_6;
+}
+
 extern "C" {
 
 JNIEXPORT jlong JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeCreate(
@@ -167,6 +171,64 @@ JNIEXPORT jstring JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeLastError(J
 
 JNIEXPORT jstring JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeVersion(JNIEnv* env, jclass) {
     return env->NewStringUTF(eui_neo_version_string());
+}
+
+JNIEXPORT jlongArray JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativePollEvent(JNIEnv* env, jclass, jlong value) {
+    if (!validHandle(env, value)) return nullptr;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    eui_neo_event evt;
+    eui_neo_event_init(&evt);
+    const eui_neo_result result = eui_neo_poll_event(engine, &evt);
+    if (result != EUI_NEO_OK) { checkResult(env, engine, result); return nullptr; }
+    jlong out[7];
+    uint32_t xb, yb, dxb, dyb;
+    std::memcpy(&xb,  &evt.x,       sizeof(xb));
+    std::memcpy(&yb,  &evt.y,       sizeof(yb));
+    std::memcpy(&dxb, &evt.delta_x, sizeof(dxb));
+    std::memcpy(&dyb, &evt.delta_y, sizeof(dyb));
+    out[0] = static_cast<jlong>(evt.type);
+    out[1] = static_cast<jlong>(xb);
+    out[2] = static_cast<jlong>(yb);
+    out[3] = static_cast<jlong>(dxb);
+    out[4] = static_cast<jlong>(dyb);
+    out[5] = 0;
+    out[6] = 0;
+    jlongArray arr = env->NewLongArray(7);
+    if (arr != nullptr) env->SetLongArrayRegion(arr, 0, 7, out);
+    return arr;
+}
+
+JNIEXPORT jstring JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeLastEventHandlerId(JNIEnv* env, jclass, jlong value) {
+    if (!validHandle(env, value)) return nullptr;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    return env->NewStringUTF(eui_neo_last_event_handler_id(engine));
+}
+
+JNIEXPORT jstring JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeLastEventTextInput(JNIEnv* env, jclass, jlong value) {
+    if (!validHandle(env, value)) return nullptr;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    return env->NewStringUTF(eui_neo_last_event_text_input(engine));
+}
+
+JNIEXPORT jint JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeSetWindowTitle(JNIEnv* env, jclass, jlong value, jstring title) {
+    if (!validHandle(env, value)) return EUI_NEO_INVALID_ARGUMENT;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    const std::string text = utf8(env, title);
+    const eui_neo_result result = eui_neo_set_window_title(engine, text.c_str());
+    checkResult(env, engine, result);
+    return result;
+}
+
+JNIEXPORT jint JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeSetWindowSize(JNIEnv* env, jclass, jlong value, jint w, jint h) {
+    if (!validHandle(env, value)) return EUI_NEO_INVALID_ARGUMENT;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    const eui_neo_result result = eui_neo_set_window_size(engine, w, h);
+    checkResult(env, engine, result);
+    return result;
+}
+
+JNIEXPORT jint JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeApiVersion(JNIEnv*, jclass) {
+    return static_cast<jint>(eui_neo_api_version());
 }
 
 } // extern "C"

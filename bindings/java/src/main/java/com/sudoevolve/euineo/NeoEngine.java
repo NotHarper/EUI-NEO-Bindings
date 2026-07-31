@@ -52,6 +52,47 @@ public final class NeoEngine implements AutoCloseable {
         check(nativeSetUiJson(handle, json));
     }
 
+    public void setUi(NeoUi ui, NeoNode root) {
+        if (ui == null || root == null) throw new NullPointerException("ui and root must not be null");
+        setUiJson(root.toJson());
+    }
+
+    public NeoEvent pollEvent() {
+        checkThread();
+        long[] raw = nativePollEvent(handle);
+        if (raw == null) return new NeoEvent(NeoEventType.NONE, "", 0, 0, 0, 0, "");
+        NeoEventType type = NeoEventType.fromCode((int) raw[0]);
+        float x  = Float.intBitsToFloat((int) raw[1]);
+        float y  = Float.intBitsToFloat((int) raw[2]);
+        float dx = Float.intBitsToFloat((int) raw[3]);
+        float dy = Float.intBitsToFloat((int) raw[4]);
+        String handlerId = type == NeoEventType.NONE ? "" : nativeLastEventHandlerId(handle);
+        String text      = type == NeoEventType.TEXT_INPUT ? nativeLastEventTextInput(handle) : "";
+        return new NeoEvent(type, handlerId, x, y, dx, dy, text);
+    }
+
+    public void drainEvents(NeoUi ui) {
+        NeoEvent evt;
+        while (!(evt = pollEvent()).isNone()) {
+            if (ui != null) ui.dispatchEvent(evt);
+        }
+    }
+
+    public void setWindowTitle(String title) {
+        checkThread();
+        if (title == null) throw new NullPointerException("title");
+        check(nativeSetWindowTitle(handle, title));
+    }
+
+    public void setWindowSize(int width, int height) {
+        checkThread();
+        check(nativeSetWindowSize(handle, width, height));
+    }
+
+    public static int apiVersion() {
+        return nativeApiVersion();
+    }
+
     public void requestUpdate() {
         check(nativeRequestUpdate(handle));
     }
@@ -124,4 +165,10 @@ public final class NeoEngine implements AutoCloseable {
     private static native void nativeDestroy(long handle);
     private static native String nativeLastError(long handle);
     private static native String nativeVersion();
+    private static native long[] nativePollEvent(long handle);
+    private static native String nativeLastEventHandlerId(long handle);
+    private static native String nativeLastEventTextInput(long handle);
+    private static native int nativeSetWindowTitle(long handle, String title);
+    private static native int nativeSetWindowSize(long handle, int width, int height);
+    private static native int nativeApiVersion();
 }
