@@ -248,6 +248,30 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 #endif
 }
 
+void centerWindow(Handle window, int width, int height) {
+    if (window == nullptr) return;
+    int display = SDL_GetWindowDisplayIndex(static_cast<SDL_Window*>(window));
+    if (display < 0) display = 0;
+    SDL_Rect bounds{};
+    if (SDL_GetDisplayUsableBounds(display, &bounds) != 0) return;
+    SDL_SetWindowPosition(static_cast<SDL_Window*>(window),
+                          bounds.x + (bounds.w - width) / 2,
+                          bounds.y + (bounds.h - height) / 2);
+}
+
+void beginWindowDrag(Handle window) {
+    if (window == nullptr) return;
+#if defined(_WIN32)
+    HWND hwnd = hwndForWindow(window);
+    if (hwnd) {
+        ReleaseCapture();
+        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    }
+#else
+    (void)window;
+#endif
+}
+
 } // namespace core::window
 
 #else
@@ -256,6 +280,17 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 #define GLFW_INCLUDE_NONE
 #endif
 #include <GLFW/glfw3.h>
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#endif
 
 #include "core/platform/ime_bridge.h"
 
@@ -366,6 +401,32 @@ void setWindowIcon(Handle window, int width, int height, unsigned char* pixels) 
 
 void setImeCursorRect(Handle window, float x, float y, float width, float height) {
     eui_ime_set_cursor_rect_with_font(static_cast<GLFWwindow*>(window), x, y, width, height, height);
+}
+
+void centerWindow(Handle window, int width, int height) {
+    if (window == nullptr) return;
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    if (monitor == nullptr) return;
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    if (mode == nullptr) return;
+    int mx = 0, my = 0;
+    glfwGetMonitorPos(monitor, &mx, &my);
+    glfwSetWindowPos(static_cast<GLFWwindow*>(window),
+                     mx + (mode->width - width) / 2,
+                     my + (mode->height - height) / 2);
+}
+
+void beginWindowDrag(Handle window) {
+    if (window == nullptr) return;
+#if defined(_WIN32)
+    HWND hwnd = glfwGetWin32Window(static_cast<GLFWwindow*>(window));
+    if (hwnd) {
+        ReleaseCapture();
+        SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    }
+#else
+    (void)window;
+#endif
 }
 
 } // namespace core::window

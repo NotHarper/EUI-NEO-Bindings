@@ -104,6 +104,7 @@ struct eui_neo_engine {
 namespace {
 
 thread_local std::string g_createError;
+thread_local std::string g_clipboard_buffer;
 
 void setError(eui_neo_engine* engine, const std::string& message) {
     if (engine != nullptr) engine->lastError = message;
@@ -625,6 +626,9 @@ eui_neo_result eui_neo_initialize(eui_neo_engine* engine) {
     request.renderApi = core::render::windowRenderApi();
     engine->window    = core::window::createWindow(request);
     if (engine->window == nullptr) { setError(engine, "Native window creation failed."); shutdownInternal(engine); return EUI_NEO_PLATFORM_ERROR; }
+    if (engine->config.decorated == 0) {
+        core::window::centerWindow(engine->window, request.width, request.height);
+    }
 #if !defined(EUI_WINDOW_BACKEND_SDL2)
     core::installInputCallbacks(engine->window);
     glfwSetWindowUserPointer(static_cast<GLFWwindow*>(engine->window), engine);
@@ -863,6 +867,48 @@ eui_neo_result eui_neo_set_window_size(eui_neo_engine* engine, int32_t width, in
 #endif
     engine->updateRequested.store(true, std::memory_order_release);
     return EUI_NEO_OK;
+}
+
+eui_neo_result eui_neo_begin_window_drag(eui_neo_engine* engine) {
+    eui_neo_result check = requireEngine(engine);
+    if (check != EUI_NEO_OK) return check;
+    if (!engine->initialized) { setError(engine, "Engine is not initialized."); return EUI_NEO_INVALID_STATE; }
+    core::window::beginWindowDrag(engine->window);
+    return EUI_NEO_OK;
+}
+
+eui_neo_result eui_neo_get_cursor_position(eui_neo_engine* engine, double* out_x, double* out_y) {
+    eui_neo_result check = requireEngine(engine);
+    if (check != EUI_NEO_OK) return check;
+    if (!out_x || !out_y) { setError(engine, "Null output pointer."); return EUI_NEO_INVALID_ARGUMENT; }
+    if (!engine->initialized) { setError(engine, "Engine is not initialized."); return EUI_NEO_INVALID_STATE; }
+    core::window::getCursorPosition(engine->window, *out_x, *out_y);
+    return EUI_NEO_OK;
+}
+
+eui_neo_result eui_neo_center_window(eui_neo_engine* engine, int32_t width, int32_t height) {
+    eui_neo_result check = requireEngine(engine);
+    if (check != EUI_NEO_OK) return check;
+    if (!engine->initialized) { setError(engine, "Engine is not initialized."); return EUI_NEO_INVALID_STATE; }
+    if (width <= 0 || height <= 0) { setError(engine, "Invalid dimensions."); return EUI_NEO_INVALID_ARGUMENT; }
+    core::window::centerWindow(engine->window, width, height);
+    return EUI_NEO_OK;
+}
+
+eui_neo_result eui_neo_set_clipboard_text(eui_neo_engine* engine, const char* text_utf8) {
+    eui_neo_result check = requireEngine(engine);
+    if (check != EUI_NEO_OK) return check;
+    if (!text_utf8) { setError(engine, "Null text pointer."); return EUI_NEO_INVALID_ARGUMENT; }
+    if (!engine->initialized) { setError(engine, "Engine is not initialized."); return EUI_NEO_INVALID_STATE; }
+    core::window::setClipboardText(text_utf8);
+    return EUI_NEO_OK;
+}
+
+const char* eui_neo_get_clipboard_text(eui_neo_engine* engine) {
+    if (engine == nullptr) { g_clipboard_buffer.clear(); return ""; }
+    if (!engine->initialized) { g_clipboard_buffer.clear(); return ""; }
+    g_clipboard_buffer = core::window::clipboardText(engine->window);
+    return g_clipboard_buffer.c_str();
 }
 
 } // extern "C"

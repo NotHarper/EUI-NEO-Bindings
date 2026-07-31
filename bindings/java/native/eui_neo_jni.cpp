@@ -85,7 +85,11 @@ JNIEXPORT jlong JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeCreate(
     config.resizable = resizable == JNI_TRUE ? 1 : 0;
     config.decorated = decorated == JNI_TRUE ? 1 : 0;
     eui_neo_engine* engine = eui_neo_create(&config);
-    if (engine == nullptr) throwException(env, "com/sudoevolve/euineo/NeoException", "Unable to create native engine.");
+    if (engine == nullptr) {
+        const char* err = eui_neo_create_last_error();
+        throwException(env, "com/sudoevolve/euineo/NeoException",
+                       (err && *err) ? err : "Unable to create native engine.");
+    }
     return reinterpret_cast<jlong>(engine);
 }
 
@@ -209,6 +213,54 @@ JNIEXPORT jstring JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeLastEventTe
     if (!validHandle(env, value)) return nullptr;
     auto* engine = reinterpret_cast<eui_neo_engine*>(value);
     return env->NewStringUTF(eui_neo_last_event_text_input(engine));
+}
+
+JNIEXPORT jint JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeBeginWindowDrag(JNIEnv* env, jclass, jlong value) {
+    if (!validHandle(env, value)) return EUI_NEO_INVALID_ARGUMENT;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    const eui_neo_result result = eui_neo_begin_window_drag(engine);
+    checkResult(env, engine, result);
+    return result;
+}
+
+JNIEXPORT jdoubleArray JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeGetCursorPosition(JNIEnv* env, jclass, jlong value) {
+    if (!validHandle(env, value)) return nullptr;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    double x = 0.0, y = 0.0;
+    const eui_neo_result result = eui_neo_get_cursor_position(engine, &x, &y);
+    if (result != EUI_NEO_OK) {
+        checkResult(env, engine, result);
+        return nullptr;
+    }
+    jdoubleArray arr = env->NewDoubleArray(2);
+    if (arr == nullptr) return nullptr;
+    jdouble buf[2] = {x, y};
+    env->SetDoubleArrayRegion(arr, 0, 2, buf);
+    return arr;
+}
+
+JNIEXPORT jint JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeCenterWindow(JNIEnv* env, jclass, jlong value, jint w, jint h) {
+    if (!validHandle(env, value)) return EUI_NEO_INVALID_ARGUMENT;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    const eui_neo_result result = eui_neo_center_window(engine, w, h);
+    checkResult(env, engine, result);
+    return result;
+}
+
+JNIEXPORT jint JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeSetClipboardText(JNIEnv* env, jclass, jlong value, jstring text) {
+    if (!validHandle(env, value)) return EUI_NEO_INVALID_ARGUMENT;
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    const std::string str = utf8(env, text);
+    const eui_neo_result result = eui_neo_set_clipboard_text(engine, str.c_str());
+    checkResult(env, engine, result);
+    return result;
+}
+
+JNIEXPORT jstring JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeGetClipboardText(JNIEnv* env, jclass, jlong value) {
+    if (!validHandle(env, value)) return env->NewStringUTF("");
+    auto* engine = reinterpret_cast<eui_neo_engine*>(value);
+    const char* text = eui_neo_get_clipboard_text(engine);
+    return env->NewStringUTF(text ? text : "");
 }
 
 JNIEXPORT jint JNICALL Java_com_sudoevolve_euineo_NeoEngine_nativeSetWindowTitle(JNIEnv* env, jclass, jlong value, jstring title) {

@@ -92,6 +92,11 @@ public final class NeoEngine implements AutoCloseable {
         check(nativeSetWindowSize(handle, width, height));
     }
 
+    public void beginWindowDrag() {
+        checkThread();
+        check(nativeBeginWindowDrag(handle));
+    }
+
     public static int apiVersion() {
         return nativeApiVersion();
     }
@@ -106,6 +111,44 @@ public final class NeoEngine implements AutoCloseable {
 
     public String lastError() {
         return nativeLastError(handle);
+    }
+
+    /**
+     * Get the current cursor position in screen coordinates.
+     * Must be called from the owner thread.
+     * @return double array [x, y] or null on error
+     */
+    public double[] getCursorPosition() {
+        checkThread();
+        return nativeGetCursorPosition(handle);
+    }
+
+    /**
+     * Center the window on the primary monitor with the specified size.
+     * Must be called from the owner thread.
+     */
+    public void centerWindow(int width, int height) {
+        checkThread();
+        check(nativeCenterWindow(handle, width, height));
+    }
+
+    /**
+     * Set the system clipboard text.
+     * Must be called from the owner thread.
+     */
+    public void setClipboardText(String text) {
+        checkThread();
+        check(nativeSetClipboardText(handle, text));
+    }
+
+    /**
+     * Get the system clipboard text.
+     * Must be called from the owner thread.
+     * @return clipboard text or empty string
+     */
+    public String getClipboardText() {
+        checkThread();
+        return nativeGetClipboardText(handle);
     }
 
     @Override
@@ -173,5 +216,10 @@ public final class NeoEngine implements AutoCloseable {
     private static native String nativeLastEventTextInput(long handle);
     private static native int nativeSetWindowTitle(long handle, String title);
     private static native int nativeSetWindowSize(long handle, int width, int height);
+    private static native int nativeBeginWindowDrag(long handle);
+    private static native double[] nativeGetCursorPosition(long handle);
+    private static native int nativeCenterWindow(long handle, int width, int height);
+    private static native int nativeSetClipboardText(long handle, String text);
+    private static native String nativeGetClipboardText(long handle);
     private static native int nativeApiVersion();
 }

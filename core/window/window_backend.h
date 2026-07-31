@@ -26,4 +26,7 @@ void destroyCursor(CursorHandle cursor);
 void setWindowIcon(Handle window, int width, int height, unsigned char* pixels);
 void setImeCursorRect(Handle window, float x, float y, float width, float height);
 
+void centerWindow(Handle window, int width, int height);
+void beginWindowDrag(Handle window);
+
 } // namespace core::window
