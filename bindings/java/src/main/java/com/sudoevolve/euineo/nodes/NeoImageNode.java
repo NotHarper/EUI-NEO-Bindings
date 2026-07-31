@@ -1,7 +1,9 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
+
+import com.sudoevolve.euineo.NeoUi;
 
 public class NeoImageNode extends NeoNode {
-    NeoImageNode(NeoUi ui) { super("image", ui); }
+    public NeoImageNode(NeoUi ui) { super("image", ui); }
 
     public NeoImageNode source(String v)           { putProp("source", v); return this; }
     public NeoImageNode fit(NeoImageFit v)         { putProp("fit", v.jsonValue); return this; }

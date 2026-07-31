@@ -1,4 +1,4 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
 
 public enum NeoEase {
     LINEAR("Linear"),

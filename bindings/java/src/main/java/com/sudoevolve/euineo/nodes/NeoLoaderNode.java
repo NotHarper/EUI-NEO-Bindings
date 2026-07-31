@@ -1,7 +1,9 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
+
+import com.sudoevolve.euineo.NeoUi;
 
 public class NeoLoaderNode extends NeoNode {
-    NeoLoaderNode(NeoUi ui) { super("loader", ui); }
+    public NeoLoaderNode(NeoUi ui) { super("loader", ui); }
 
     public NeoLoaderNode active(boolean v) { putProp("active", v); return this; }
     public NeoLoaderNode mode(String v)    { putProp("mode", v); return this; }

@@ -1,5 +1,8 @@
 package com.sudoevolve.euineo;
 
+import com.sudoevolve.euineo.events.NeoEvent;
+import com.sudoevolve.euineo.events.NeoEventType;
+import com.sudoevolve.euineo.nodes.NeoNode;
 import java.lang.ref.Cleaner;
 
 public final class NeoEngine implements AutoCloseable {

@@ -1,10 +1,9 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import com.sudoevolve.euineo.NeoUi;
 
 public class NeoPolygonNode extends NeoNode {
-    NeoPolygonNode(NeoUi ui) { super("polygon", ui); }
+    public NeoPolygonNode(NeoUi ui) { super("polygon", ui); }
 
     public NeoPolygonNode points(float[]... pts) { putProp("points", pts); return this; }
 

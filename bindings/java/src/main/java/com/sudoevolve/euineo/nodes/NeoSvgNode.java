@@ -1,7 +1,9 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
+
+import com.sudoevolve.euineo.NeoUi;
 
 public class NeoSvgNode extends NeoNode {
-    NeoSvgNode(NeoUi ui) { super("svg", ui); }
+    public NeoSvgNode(NeoUi ui) { super("svg", ui); }
 
     public NeoSvgNode source(String v) { putProp("source", v); return this; }
 

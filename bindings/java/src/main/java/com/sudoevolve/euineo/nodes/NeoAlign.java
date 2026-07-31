@@ -1,4 +1,4 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
 
 public enum NeoAlign {
     START("start"), CENTER("center"), END("end");

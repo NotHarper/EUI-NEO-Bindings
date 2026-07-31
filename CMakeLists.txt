@@ -251,12 +251,27 @@ if(EUI_BUILD_JNI)
     set(EUI_JNI_CLASSES_DIR "${CMAKE_CURRENT_BINARY_DIR}/java-classes")
     set(EUI_JNI_NATIVE_DIR  "${EUI_JNI_CLASSES_DIR}/natives/${EUI_JNI_PLATFORM}")
     set(EUI_JNI_JAR         "${CMAKE_CURRENT_BINARY_DIR}/eui-neo-java.jar")
+    set(_EUI_JAVA_BASE "${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo")
     set(EUI_JAVA_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoException.java
-        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoConfig.java
-        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoFrameInfo.java
-        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NativeLoader.java
-        ${CMAKE_CURRENT_SOURCE_DIR}/bindings/java/src/main/java/com/sudoevolve/euineo/NeoEngine.java
+        ${_EUI_JAVA_BASE}/NeoException.java
+        ${_EUI_JAVA_BASE}/NeoConfig.java
+        ${_EUI_JAVA_BASE}/NeoFrameInfo.java
+        ${_EUI_JAVA_BASE}/NativeLoader.java
+        ${_EUI_JAVA_BASE}/NeoUi.java
+        ${_EUI_JAVA_BASE}/NeoEngine.java
+        ${_EUI_JAVA_BASE}/nodes/NeoNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoLayoutNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoRectNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoTextNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoImageNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoSvgNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoPolygonNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoLoaderNode.java
+        ${_EUI_JAVA_BASE}/nodes/NeoAlign.java
+        ${_EUI_JAVA_BASE}/nodes/NeoEase.java
+        ${_EUI_JAVA_BASE}/nodes/NeoImageFit.java
+        ${_EUI_JAVA_BASE}/events/NeoEvent.java
+        ${_EUI_JAVA_BASE}/events/NeoEventType.java
     )
 
     add_custom_target(eui_neo_java_classes

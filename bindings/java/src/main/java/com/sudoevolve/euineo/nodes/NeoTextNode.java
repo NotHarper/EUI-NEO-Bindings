@@ -1,7 +1,9 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
+
+import com.sudoevolve.euineo.NeoUi;
 
 public class NeoTextNode extends NeoNode {
-    NeoTextNode(NeoUi ui) { super("text", ui); }
+    public NeoTextNode(NeoUi ui) { super("text", ui); }
 
     public NeoTextNode text(String v)         { putProp("text", v); return this; }
     public NeoTextNode fontSize(float v)      { putProp("fontSize", v); return this; }
@@ -21,5 +23,5 @@ public class NeoTextNode extends NeoNode {
     @Override public NeoTextNode maxWidth(float v)   { super.maxWidth(v); return this; }
     @Override public NeoTextNode opacity(float v)    { super.opacity(v); return this; }
     @Override public NeoTextNode flexGrow(float v)   { super.flexGrow(v); return this; }
-    @Override public NeoTextNode onClick(java.util.function.Runnable h) { super.onClick(h); return this; }
+    @Override public NeoTextNode onClick(Runnable h) { super.onClick(h); return this; }
 }

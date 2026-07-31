@@ -1,4 +1,4 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.events;
 
 public final class NeoEvent {
     public final NeoEventType type;

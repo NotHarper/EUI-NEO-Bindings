@@ -1,5 +1,8 @@
 package com.sudoevolve.euineo;
 
+import com.sudoevolve.euineo.events.NeoEvent;
+import com.sudoevolve.euineo.events.NeoEventType;
+import com.sudoevolve.euineo.nodes.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,7 +27,7 @@ public final class NeoUi {
 
     // ---- Callback registry ----
 
-    String registerCallback(Object handler) {
+    public String registerCallback(Object handler) {
         String id = "h_" + counter.getAndIncrement();
         callbacks.put(id, handler);
         return id;

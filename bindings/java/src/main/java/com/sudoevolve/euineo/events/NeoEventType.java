@@ -1,4 +1,4 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.events;
 
 public enum NeoEventType {
     NONE(0), CLICK(1), PRESS(2), RELEASE(3),

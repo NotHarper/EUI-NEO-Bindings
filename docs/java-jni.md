@@ -44,6 +44,8 @@
 
 ```java
 import com.sudoevolve.euineo.*;
+import com.sudoevolve.euineo.nodes.*;
+import com.sudoevolve.euineo.events.*;
 
 NeoConfig config = new NeoConfig().title("Hello EUI-NEO").size(960, 640);
 
@@ -87,7 +89,15 @@ engine.setUiJson("""
 - JDK 17+（`javac`/`jar` 须在 `PATH` 或通过 `JAVA_HOME` 指定）
 - OpenGL 开发文件 + GLFW 或 SDL2（与标准 C++ 构建相同）
 
-### 构建命令
+### 一键构建（Windows）
+
+```bat
+build-jni.bat
+```
+
+支持可选 `clean` 参数（`build-jni.bat clean`）以删除旧构建目录后重新配置。脚本依次执行：CMake 配置 → native 编译 → Java 编译 + 打包 JAR → 验证 JAR 内容 → smoke test。
+
+### 手动构建命令
 
 ```sh
 cmake -S . -B build-jni \
@@ -113,7 +123,7 @@ JAR 内 native 库路径为 `natives/<os>-<arch>/eui_neo_jni.<ext>`，由 `Nativ
 javac --release 17 -encoding UTF-8 \
   -cp build-jni/eui-neo-java.jar \
   -d build-jni/smoke-classes \
-  bindings/java/smoke/SmokeTest.java
+  tests/java/SmokeTest.java
 
 # Windows
 java -cp "build-jni/eui-neo-java.jar;build-jni/smoke-classes" \
@@ -657,6 +667,6 @@ java -Deui.neo.native=/opt/eui/eui_neo_jni.so -jar my-app.jar
 
 ## 参见
 
-- `bindings/java/smoke/SmokeTest.java` — 无界面功能验证
+- `tests/java/SmokeTest.java` — 无界面功能验证
 - `include/eui/neo_c_api.h` — 完整 C ABI 声明
 - `docs/skills/eui-neo-jni/SKILL.md` — Claude Code skill（开发参考）

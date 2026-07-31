@@ -1,7 +1,9 @@
-package com.sudoevolve.euineo;
+package com.sudoevolve.euineo.nodes;
+
+import com.sudoevolve.euineo.NeoUi;
 
 public class NeoLayoutNode extends NeoNode {
-    NeoLayoutNode(String type, NeoUi ui) { super(type, ui); }
+    public NeoLayoutNode(String type, NeoUi ui) { super(type, ui); }
 
     public NeoLayoutNode justify(NeoAlign v)   { putProp("justify", v.jsonValue); return this; }
     public NeoLayoutNode align(NeoAlign v)     { putProp("align", v.jsonValue); return this; }

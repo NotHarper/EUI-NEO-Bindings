@@ -24,7 +24,7 @@ Before touching any code, read these files in order:
 3. `bindings/java/native/eui_neo_jni.cpp` — all JNI entry points; study the error-handling helpers
 4. `bindings/java/src/main/java/com/sudoevolve/euineo/NeoEngine.java` — primary Java facade
 5. `bindings/java/src/main/java/com/sudoevolve/euineo/NeoUi.java` — builder root + callback registry
-6. `bindings/java/src/main/java/com/sudoevolve/euineo/NeoNode.java` — base builder node
+6. `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoNode.java` — base builder node
 7. `CMakeLists.txt` — grep for `EUI_BUILD_JNI` to find the JNI CMake block
 
 ## Key Files
@@ -36,25 +36,26 @@ Before touching any code, read these files in order:
 | `bindings/java/native/eui_neo_jni.cpp` | JNI entry points; maps Java native methods to C ABI |
 | `bindings/java/src/main/java/com/sudoevolve/euineo/NeoEngine.java` | Engine facade (AutoCloseable, thread affinity, pollEvent, setUi) |
 | `bindings/java/src/main/java/com/sudoevolve/euineo/NeoUi.java` | Builder root: factory methods + callback registry + dispatchEvent |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoNode.java` | Base builder: all layout/visual/transform/event/scroll props + JSON serializer |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoLayoutNode.java` | column/row/stack/flow with justify/align |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoTextNode.java` | text-specific builder |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoImageNode.java` | image builder (source, fit, flipVertically) |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoSvgNode.java` | SVG builder (source) |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoPolygonNode.java` | polygon builder (points array) |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoLoaderNode.java` | loader/spinner builder |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoRectNode.java` | rect builder |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoEvent.java` | Polled event (type, handlerId, x, y, deltaX, deltaY, textInput) |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoEventType.java` | Event type enum (NONE/CLICK/PRESS/RELEASE/HOVER_ENTER/HOVER_LEAVE/TEXT_INPUT/SCROLL/DRAG) |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoAlign.java` | Align enum (START/CENTER/END) |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoEase.java` | Ease enum for transitions |
-| `bindings/java/src/main/java/com/sudoevolve/euineo/NeoImageFit.java` | ImageFit enum (COVER/CONTAIN/STRETCH) |
 | `bindings/java/src/main/java/com/sudoevolve/euineo/NeoConfig.java` | Immutable config builder |
 | `bindings/java/src/main/java/com/sudoevolve/euineo/NeoFrameInfo.java` | Per-frame state (record, Java 16+) |
 | `bindings/java/src/main/java/com/sudoevolve/euineo/NeoException.java` | RuntimeException with integer error code |
 | `bindings/java/src/main/java/com/sudoevolve/euineo/NativeLoader.java` | Extracts and loads native lib from JAR |
-| `bindings/java/smoke/SmokeTest.java` | Headless smoke test (no display required) |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoNode.java` | Base builder: all layout/visual/transform/event/scroll props + JSON serializer |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoLayoutNode.java` | column/row/stack/flow with justify/align |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoRectNode.java` | rect builder |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoTextNode.java` | text-specific builder |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoImageNode.java` | image builder (source, fit, flipVertically) |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoSvgNode.java` | SVG builder (source) |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoPolygonNode.java` | polygon builder (points array) |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoLoaderNode.java` | loader/spinner builder |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoAlign.java` | Align enum (START/CENTER/END) |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoEase.java` | Ease enum for transitions |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoImageFit.java` | ImageFit enum (COVER/CONTAIN/STRETCH) |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/events/NeoEvent.java` | Polled event (type, handlerId, x, y, deltaX, deltaY, textInput) |
+| `bindings/java/src/main/java/com/sudoevolve/euineo/events/NeoEventType.java` | Event type enum (NONE/CLICK/PRESS/RELEASE/HOVER_ENTER/HOVER_LEAVE/TEXT_INPUT/SCROLL/DRAG) |
+| `tests/java/SmokeTest.java` | Headless smoke test (no display required) |
 | `CMakeLists.txt` | Top-level CMake; search `EUI_BUILD_JNI` for JNI targets |
+| `build-jni.bat` | One-click build script (Windows) — configure + build + JAR + smoke test |
 
 ## Architecture
 
@@ -127,10 +128,12 @@ while (engine.isRunning()) {
 
 ### Adding a new node type to the builder
 
-1. Create `NeoFooNode.java` extending `NeoNode` with `super("foo", ui)` and type-specific methods
-2. Add a factory method `fooNode()` to `NeoUi.java`
-3. Add an `else if (type == "foo")` branch in `configureNodeBuilder` in `neo_c_api.cpp`
-4. Add a new `case` in `composeNode` if the node needs a different DSL builder (e.g., `ui.rect(id)` vs `ui.text(id)`)
+1. Create `bindings/java/src/main/java/com/sudoevolve/euineo/nodes/NeoFooNode.java` in package `com.sudoevolve.euineo.nodes`, extending `NeoNode` with `super("foo", ui)` — constructor must be `public`
+2. Add `import com.sudoevolve.euineo.NeoUi;` at the top of the new file
+3. Add a factory method `fooNode()` to `NeoUi.java` (which imports `com.sudoevolve.euineo.nodes.*`)
+4. Add the new source path to `EUI_JAVA_SOURCES` in `CMakeLists.txt`
+5. Add an `else if (type == "foo")` branch in `configureNodeBuilder` in `neo_c_api.cpp`
+6. Add a new `case` in `composeNode` if the node needs a different DSL builder (e.g., `ui.rect(id)` vs `ui.text(id)`)
 
 ### Adding a new event type
 
@@ -180,7 +183,7 @@ jar tf build-jni/eui-neo-java.jar | grep natives
 javac --release 17 -encoding UTF-8 \
   -cp build-jni/eui-neo-java.jar \
   -d build-jni/smoke-classes \
-  bindings/java/smoke/SmokeTest.java
+  tests/java/SmokeTest.java
 java -cp "build-jni/eui-neo-java.jar;build-jni/smoke-classes" \
   com.sudoevolve.euineo.SmokeTest
 
